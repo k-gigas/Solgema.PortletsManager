@@ -18,6 +18,9 @@ from plone.memoize.instance import memoize
 
 from Solgema.PortletsManager.interfaces import ISolgemaPortletAssignment
 
+from .util import logException
+
+
 class SolgemaPortletRetriever(basePortletRetriever):
     """The Solgema portlet retriever.
 
@@ -100,16 +103,25 @@ class SolgemaPortletRetriever(basePortletRetriever):
 
         assignments = []
         for category, key, assignment in categories:
-            assigned = ISolgemaPortletAssignment(assignment)
-            portletHash = hashPortletInfo(dict(manager=manager, category=category, key=key, name =assignment.__name__,))
-            if not getattr(assigned, 'stopUrls', False) or len([stopUrl for stopUrl in getattr(assigned, 'stopUrls', []) if stopUrl in here_url])==0:
-                assignments.append({'category'    : category,
-                                    'key'         : key,
-                                    'name'        : assignment.__name__,
-                                    'assignment'  : assignment,
-                                    'hash'        : hashPortletInfo(dict(manager=manager, category=category, key=key, name =assignment.__name__,)),
-                                    'stopUrls'    : ISolgemaPortletAssignment(assignment).stopUrls,
-                                    })
+            try:
+                assigned = ISolgemaPortletAssignment(assignment)
+                portletHash = hashPortletInfo(dict(manager=manager, category=category, key=key, name =assignment.__name__,))
+                if not getattr(assigned, 'stopUrls', False) or len([stopUrl for stopUrl in getattr(assigned, 'stopUrls', []) if stopUrl in here_url])==0:
+                    assignments.append({'category'    : category,
+                                        'key'         : key,
+                                        'name'        : assignment.__name__,
+                                        'assignment'  : assignment,
+                                        'hash'        : hashPortletInfo(dict(manager=manager, category=category, key=key, name =assignment.__name__,)),
+                                        'stopUrls'    : ISolgemaPortletAssignment(assignment).stopUrls,
+                                        })
+            except TypeError:
+                logException(u'Error while retrieving portlet assignment settings. '
+                              'Context: "%s", Category: "%s", Key: "%s", Assignment '
+                              'Class: "%s", Assignment ID: "%s"' % (
+                              '/'.join(self.context.getPhysicalPath()),
+                              category, key, str(assignment.__class__),
+                              assignment.__name__), context=self.context)
+                continue
         
         if hasattr(managerUtility, 'listAllManagedPortlets'):
             hashlist = managerUtility.listAllManagedPortlets

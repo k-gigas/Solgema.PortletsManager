@@ -32,6 +32,9 @@ from plone.app.portlets.interfaces import IDashboard
 from Solgema.PortletsManager.interfaces import ISolgemaPortletsManagerLayer, ISolgemaPortletAssignment
 from Solgema.PortletsManager.interfaces import ISolgemaPortletManagerRetriever
 
+from .util import logException
+
+
 class SolgemaColumnPortletManagerRenderer(ColumnPortletManagerRenderer):
 #    implements(IPortletManagerRenderer)
 #    adapts(Interface, ISolgemaPortletsManagerLayer, IBrowserView, IColumn)
@@ -110,16 +113,25 @@ class SolgemaPortletManagerRetriever(object):
         assignments = []
         for category, key, assignment in categories:
             portletHash = hashPortletInfo(dict(manager=manager, category=category, key=key, name =assignment.__name__,))
-            if portletHash not in hashlist:
-                hashlist.append(portletHash)
-            assignments.append({'category'    : category,
-                                'key'         : key,
-                                'name'        : assignment.__name__,
-                                'assignment'  : assignment,
-                                'hash'        : portletHash,
-                                'stopUrls'    : ISolgemaPortletAssignment(assignment).stopUrls,
-                                'manager'     : manager,
-                                })
+            try:
+                assignments.append({'category'    : category,
+                                    'key'         : key,
+                                    'name'        : assignment.__name__,
+                                    'assignment'  : assignment,
+                                    'hash'        : portletHash,
+                                    'stopUrls'    : ISolgemaPortletAssignment(assignment).stopUrls,
+                                    'manager'     : manager,
+                                    })
+                if portletHash not in hashlist:
+                    hashlist.append(portletHash)
+            except TypeError:
+                logException(u'rror while retrieving portlet assignment settings. '
+                              'Context: "%s", Category: "%s", Key: "%s", Assignment '
+                              'Class: "%s", Assignment ID: "%s"' % (
+                              '/'.join(self.context.getPhysicalPath()),
+                              category, key, str(assignment.__class__),
+                              assignment.__name__), context=self.context)
+                continue
 
         managerUtility.listAllManagedPortlets = hashlist
 
